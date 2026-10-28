@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dr. Pool Prospect Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: summary strip on top, then four status lanes (agreement out / we owe a reply / signed). Cards are rows of name, email, what we sent, days waiting. */
+:root{
+  --bg:#eef2f1; --panel:#f8faf9; --fg:#14262b; --muted:#566a6e; --line:#d3dcdb;
+  --accent:#0b6e7a; --accent-soft:#d6ebed;
+  --warn:#a85d00; --warn-soft:#f8e6cc; --bad:#a8321f; --bad-soft:#f6dad4; --ok:#2c6e3f; --ok-soft:#d9ecdd;
+  --display:"Familjen Grotesk",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1b1e; --panel:#17272b; --fg:#e4eeee; --muted:#93a8ab; --line:#2a3f44;
+  --accent:#5cc2cd; --accent-soft:#17383d;
+  --warn:#f0b35c; --warn-soft:#3a2b12; --bad:#f0907e; --bad-soft:#3d1d17; --ok:#7fcf93; --ok-soft:#173222; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1b1e; --panel:#17272b; --fg:#e4eeee; --muted:#93a8ab; --line:#2a3f44;
+  --accent:#5cc2cd; --accent-soft:#17383d;
+  --warn:#f0b35c; --warn-soft:#3a2b12; --bad:#f0907e; --bad-soft:#3d1d17; --ok:#7fcf93; --ok-soft:#173222; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--display);font-size:15px;line-height:1.45;
+  padding-block:24px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:12px;margin-bottom:20px}
+h1{font-size:clamp(26px,4vw,36px);line-height:1.1;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.asof{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.sum{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:24px;padding:12px 16px;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.sum div{display:flex;gap:8px;align-items:baseline}
+.sum b{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.sum span{color:var(--muted);font-size:13px}
+.lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:20px;align-items:start}
+.lane{min-width:0}
+.lane h2{font-size:13px;text-transform:uppercase;letter-spacing:.09em;font-weight:600;margin:0 0 4px;display:flex;justify-content:space-between;gap:8px}
+.lane h2 em{font-style:normal;font-family:var(--mono);color:var(--muted)}
+.lane p.hint{margin:0 0 10px;color:var(--muted);font-size:13px}
+.cards{display:flex;flex-direction:column;gap:10px}
+.card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;min-width:0}
+.card:hover{border-color:var(--accent)}
+.card .open{position:absolute;inset:0;z-index:1;border-radius:6px}
+.card .open:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.notes{position:relative;z-index:2;margin-top:8px;display:flex;flex-direction:column;gap:6px;padding-right:34px;min-height:30px}
+.ndate{display:block;margin-top:4px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.ntext{font-size:13.5px;background:var(--warn-soft);color:var(--fg);border-radius:4px;padding:6px 9px;white-space:pre-wrap;overflow-wrap:anywhere}
+.notes textarea{font:inherit;font-size:13.5px;color:var(--fg);background:var(--bg);border:1px solid var(--accent);border-radius:4px;padding:6px 9px;width:100%;resize:vertical}
+.notes textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pen{position:absolute;right:0;bottom:0;width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--line);border-radius:50%;background:var(--bg);color:var(--muted);cursor:pointer;padding:0}
+.pen:hover,.pen.has{color:var(--accent);border-color:var(--accent)}
+.pen:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pen svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:start}
+.name{font-weight:600;font-size:16px;overflow-wrap:anywhere}
+.name.unk{color:var(--muted);font-weight:500;font-style:italic}
+.age{font-family:var(--mono);font-size:12px;padding:2px 7px;border-radius:3px;white-space:nowrap;font-variant-numeric:tabular-nums;background:var(--accent-soft);color:var(--accent)}
+.age.warn{background:var(--warn-soft);color:var(--warn)}
+.age.bad{background:var(--bad-soft);color:var(--bad)}
+.age.ok{background:var(--ok-soft);color:var(--ok)}
+.mail{font-family:var(--mono);font-size:12.5px;color:var(--muted);overflow-wrap:anywhere;margin-top:2px}
+.what{margin-top:8px;font-size:14px}
+.note{margin-top:4px;font-size:13px;color:var(--muted)}
+.sent{margin-top:8px;font-family:var(--mono);font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
+</style>
+
+</head><body>
+<div class="wrap">
+  <header>
+    <h1>Dr. Pool Prospect Board</h1>
+    <div class="asof">AS OF WED OCT 28, 2026 · LAST 3 WEEKS OF info@drpool.us</div>
+  </header>
+  <div class="sum" id="sum"></div>
+  <div class="lanes" id="lanes"></div>
+  <footer>Click a card to open the email in Outlook. Click the pencil to add a note; notes save in this browser. Day counts run from the date the agreement or last message went out. A missing name means the email only showed an address. Price-increase letters to existing HOA and property-management accounts are not listed.</footer>
+</div>
+
+<script>
+var REF = new Date(2026,9,28);
+var B = "https://outlook.office365.com/owa/?ItemID=AAMkAGJlYjFiYmNjLWQwZmItNGZmZi1hMWU3LTg2ODg1Y2E5YmZlMABGAAAAAABKY30NHidgRIV5w9omZIEGBwDX592ofYAdRqApT2oAkOrLAAAAAAE";
+function L(letter,suf){return B+letter+"AADX592ofYAdRqApT2oAkOrLAA"+suf+"&exvsurl=1&viewmodel=ReadMessageItem";}
+function days(m,d){return Math.round((REF-new Date(2026,m-1,d))/864e5);}
+
+var lanes = [
+ {t:"Agreement sent, not signed", hint:"Waiting on the customer.", items:[
+  {n:"Bradley Bodie", e:"brad@bodie1.com", w:"New Estimate Agreement. He replied by email asking us to accept it as his signature and promised a signed copy.", s:"Sent Oct 9", m:10,d:9, u:L("M","XPu%2FhyAAA%3D")},
+  {n:"Name not shown", e:"ramydiga@gmail.com", w:"New Estimate Agreement. No signed copy or reply found.", s:"Sent Oct 12", m:10,d:12, u:L("M","XT4CQhAAA%3D")},
+  {n:"Jonathan Taylor, Davie", e:"taylorjonathan150@gmail.com", p:"856-542-8821", w:"Pool maintenance, service code 3, Mondays, bill by email with autopay. Could not open the agreement (asked for a password).", note:"We resent it Oct 27 and offered a paper contract at his house.", s:"First sent Oct 20 · lead since Aug 14", m:10,d:20, u:L("J","XdXwu9AAA%3D")},
+  {n:"Charone Cole", e:"Email not captured", w:"Pump replacement. Water is back on and she is moving forward.", note:"Board says watch for the signed contract.", s:"Oct 23", m:10,d:23, u:null},
+  {n:"Rene Grajales", e:"Email not captured", w:"Landscape Disclosure for construction and renovation. Estimate agreement already signed Oct 20.", s:"Sent Oct 27", m:10,d:27, u:L("M","XdXlgvAAA%3D")},
+  {n:"Name not shown", e:"giselar81@gmail.com", w:"New Estimate Agreement.", s:"Sent Oct 27, 2:47 PM", m:10,d:27, u:L("M","XdXlhOAAA%3D")},
+  {n:"Name not shown", e:"mgpta@yahoo.com", w:"New Estimate Agreement.", s:"Sent Oct 27, 2:51 PM", m:10,d:27, u:L("M","XdXlhPAAA%3D")}
+ ]},
+ {t:"We owe them a reply", hint:"New requests with no agreement or estimate found yet.", items:[
+  {n:"Albert Connell, Miramar", e:"albert8083@hotmail.com", p:"954-395-4209", w:"Wants the whole pool descaled, asap. Confirmed his address, 18553 SW 49th St, on Oct 20.", note:"No estimate or agreement found in the last 3 weeks.", s:"Form Oct 13 · last note Oct 20", m:10,d:20, u:L("M","XYuF25AAA%3D"), flag:true},
+  {n:"Chris Rodriguez", e:"Email not captured", w:"Weekly cleaning. Wants to start and asked what we need to begin.", s:"Oct 23", m:10,d:23, u:null, flag:true},
+  {n:"Hong Pham", e:"Email not captured", w:"Pool light repair and pricing. Said we can stop by anytime to look.", s:"Oct 23", m:10,d:23, u:null, flag:true}
+ ]},
+ {t:"Signed in the last 3 weeks", hint:"New Estimate Agreements filed through Adobe Sign.", items:[
+  {n:"Rene Grajales", w:"Signed Oct 20. Welcome letter sent Oct 23.", m:10,d:20, ok:true},
+  {n:"Prabu Shanmugam", w:"Signed Oct 15. Welcome letter sent Oct 16.", m:10,d:15, ok:true},
+  {n:"Kiara Rodriguez", w:"Signed Oct 14. First send bounced on a typo, resent the same day.", m:10,d:14, ok:true},
+  {n:"Homer Huey", w:"Signed Oct 12, about an hour after it went out.", m:10,d:12, ok:true},
+  {n:"Sonia Casafranca de Garcia", w:"Signed Oct 8.", m:10,d:8, ok:true},
+  {n:"Christopher Suchy", w:"Signed Oct 7.", m:10,d:7, ok:true}
+ ]}
+];
+
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+var html="", waiting=0, reply=0, signed=0;
+lanes.forEach(function(l,i){
+  html+='<section class="lane"><h2><span>'+esc(l.t)+'</span><em>'+l.items.length+'</em></h2><p class="hint">'+esc(l.hint)+'</p><div class="cards">';
+  l.items.forEach(function(x){
+    var d=days(x.m,x.d), cls=x.ok?"ok":(d>=14?"bad":(d>=5?"warn":"")), label=x.ok?(d+"d ago"):(d===0?"today":d+"d");
+    var unk=x.n==="Name not shown";
+    var key=x.n+"|"+(x.e||"")+"|"+(x.s||x.w);
+    html+='<div class="card" data-key="'+esc(key)+'">'+(x.u?'<a class="open" href="'+x.u+'" target="_blank" rel="noopener" aria-label="Open email for '+esc(x.n)+'"></a>':'');
+    html+='<div class="top"><div class="name'+(unk?' unk':'')+'">'+esc(x.n)+'</div><div class="age '+cls+'">'+label+'</div></div>';
+    if(x.e)html+='<div class="mail">'+esc(x.e)+(x.p?' · '+esc(x.p):'')+'</div>';
+    html+='<div class="what">'+esc(x.w)+'</div>';
+    if(x.note)html+='<div class="note">'+esc(x.note)+'</div>';
+    if(x.s)html+='<div class="sent">'+esc(x.s)+'</div>';
+    html+='<div class="notes"><div class="ntext" hidden></div><button type="button" class="pen" aria-label="Add or edit note"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></div></div>';
+    if(i===0)waiting++; else if(i===1)reply++; else signed++;
+  });
+  html+='</div></section>';
+});
+document.getElementById("lanes").innerHTML=html;
+var SK="drpool-prospect-notes", store={};
+try{store=JSON.parse(localStorage.getItem(SK)||"{}")}catch(e){store={}}
+function persist(){try{localStorage.setItem(SK,JSON.stringify(store))}catch(e){}}
+document.querySelectorAll(".card").forEach(function(c){
+  var k=c.dataset.key, box=c.querySelector(".ntext"), pen=c.querySelector(".pen"), wrap=c.querySelector(".notes");
+  function cur(){var r=store[k];return r?(typeof r==="string"?{t:r,at:""}:r):null;}
+  function fmt(iso){if(!iso)return "";var d=new Date(iso);return isNaN(d)?"":d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})+", "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}
+  function show(){var r=cur();box.textContent="";if(r){box.appendChild(document.createTextNode(r.t));if(r.at){var s=document.createElement("span");s.className="ndate";s.textContent=fmt(r.at);box.appendChild(s);}}box.hidden=!r;pen.classList.toggle("has",!!r);}
+  show();
+  pen.addEventListener("click",function(){
+    if(wrap.querySelector("textarea"))return;
+    var ta=document.createElement("textarea");
+    ta.rows=3;ta.value=cur()?cur().t:"";ta.placeholder="Add a note";ta.setAttribute("aria-label","Note for this prospect");
+    box.hidden=true;wrap.insertBefore(ta,box);ta.focus();
+    ta.addEventListener("blur",function(){var v=ta.value.trim(),old=cur();if(!v)delete store[k];else if(!old||old.t!==v)store[k]={t:v,at:new Date().toISOString()};persist();ta.remove();show();});
+    ta.addEventListener("keydown",function(e){if(e.key==="Escape"){ta.value=cur()?cur().t:"";ta.blur();}});
+  });
+});
+document.getElementById("sum").innerHTML=
+ '<div><b>'+waiting+'</b><span>waiting on a signature</span></div>'+
+ '<div><b>'+reply+'</b><span>need our reply</span></div>'+
+ '<div><b>'+signed+'</b><span>signed since Oct 7</span></div>';
+</script>
+</body></html>
