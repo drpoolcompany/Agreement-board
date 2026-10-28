@@ -61,6 +61,17 @@ h1{font-size:clamp(26px,4vw,36px);line-height:1.1;margin:0;font-weight:700;lette
 .note{margin-top:4px;font-size:13px;color:var(--muted)}
 .sent{margin-top:8px;font-family:var(--mono);font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
 footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
+.nlist{display:flex;flex-direction:column;gap:6px}
+.ne{font-size:13.5px;background:var(--warn-soft);color:var(--fg);border-radius:4px;padding:6px 9px;white-space:pre-wrap;overflow-wrap:anywhere}
+.nform{display:flex;flex-direction:column;gap:6px}
+.nbtns{display:flex;gap:8px}
+.nbtns button{font:inherit;font-size:13px;padding:4px 12px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.nbtns .save{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+.nbtns button:focus-visible,.mv:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.actions{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mv{font:inherit;font-size:12.5px;color:var(--muted);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:3px 6px;max-width:78%;cursor:pointer}
+.notes{padding-right:0;min-height:0}
+.pen{position:static;flex:none}
 </style>
 
 </head><body>
@@ -71,7 +82,7 @@ footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
   </header>
   <div class="sum" id="sum"></div>
   <div class="lanes" id="lanes"></div>
-  <footer>Click a card to open the email in Outlook. Click the pencil to add a note; notes save in this browser. Day counts run from the date the agreement or last message went out. A missing name means the email only showed an address. Price-increase letters to existing HOA and property-management accounts are not listed.</footer>
+  <footer>Click a card to open the email in Outlook. Click the pencil to add a note; every note is kept with its date. Use the menu on a card to move it to another list. Notes and moves save in this browser. Day counts run from the date the agreement or last message went out. A missing name means the email only showed an address. Price-increase letters to existing HOA and property-management accounts are not listed.</footer>
 </div>
 
 <script>
@@ -106,46 +117,67 @@ var lanes = [
 ];
 
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
-var html="", waiting=0, reply=0, signed=0;
-lanes.forEach(function(l,i){
-  html+='<section class="lane"><h2><span>'+esc(l.t)+'</span><em>'+l.items.length+'</em></h2><p class="hint">'+esc(l.hint)+'</p><div class="cards">';
-  l.items.forEach(function(x){
-    var d=days(x.m,x.d), cls=x.ok?"ok":(d>=14?"bad":(d>=5?"warn":"")), label=x.ok?(d+"d ago"):(d===0?"today":d+"d");
-    var unk=x.n==="Name not shown";
-    var key=x.n+"|"+(x.e||"")+"|"+(x.s||x.w);
-    html+='<div class="card" data-key="'+esc(key)+'">'+(x.u?'<a class="open" href="'+x.u+'" target="_blank" rel="noopener" aria-label="Open email for '+esc(x.n)+'"></a>':'');
-    html+='<div class="top"><div class="name'+(unk?' unk':'')+'">'+esc(x.n)+'</div><div class="age '+cls+'">'+label+'</div></div>';
-    if(x.e)html+='<div class="mail">'+esc(x.e)+(x.p?' · '+esc(x.p):'')+'</div>';
-    html+='<div class="what">'+esc(x.w)+'</div>';
-    if(x.note)html+='<div class="note">'+esc(x.note)+'</div>';
-    if(x.s)html+='<div class="sent">'+esc(x.s)+'</div>';
-    html+='<div class="notes"><div class="ntext" hidden></div><button type="button" class="pen" aria-label="Add or edit note"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></div></div>';
-    if(i===0)waiting++; else if(i===1)reply++; else signed++;
-  });
-  html+='</div></section>';
-});
-document.getElementById("lanes").innerHTML=html;
-var SK="drpool-prospect-notes", store={};
+var SK="drpool-prospect-notes", MK="drpool-prospect-moves", store={}, moves={};
 try{store=JSON.parse(localStorage.getItem(SK)||"{}")}catch(e){store={}}
-function persist(){try{localStorage.setItem(SK,JSON.stringify(store))}catch(e){}}
-document.querySelectorAll(".card").forEach(function(c){
-  var k=c.dataset.key, box=c.querySelector(".ntext"), pen=c.querySelector(".pen"), wrap=c.querySelector(".notes");
-  function cur(){var r=store[k];return r?(typeof r==="string"?{t:r,at:""}:r):null;}
-  function fmt(iso){if(!iso)return "";var d=new Date(iso);return isNaN(d)?"":d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})+", "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}
-  function show(){var r=cur();box.textContent="";if(r){box.appendChild(document.createTextNode(r.t));if(r.at){var s=document.createElement("span");s.className="ndate";s.textContent=fmt(r.at);box.appendChild(s);}}box.hidden=!r;pen.classList.toggle("has",!!r);}
-  show();
-  pen.addEventListener("click",function(){
-    if(wrap.querySelector("textarea"))return;
-    var ta=document.createElement("textarea");
-    ta.rows=3;ta.value=cur()?cur().t:"";ta.placeholder="Add a note";ta.setAttribute("aria-label","Note for this prospect");
-    box.hidden=true;wrap.insertBefore(ta,box);ta.focus();
-    ta.addEventListener("blur",function(){var v=ta.value.trim(),old=cur();if(!v)delete store[k];else if(!old||old.t!==v)store[k]={t:v,at:new Date().toISOString()};persist();ta.remove();show();});
-    ta.addEventListener("keydown",function(e){if(e.key==="Escape"){ta.value=cur()?cur().t:"";ta.blur();}});
+try{moves=JSON.parse(localStorage.getItem(MK)||"{}")}catch(e){moves={}}
+function persist(){try{localStorage.setItem(SK,JSON.stringify(store));localStorage.setItem(MK,JSON.stringify(moves))}catch(e){}}
+function entries(k){var r=store[k];if(!r)return [];if(typeof r==="string")return [{t:r,at:""}];return Array.isArray(r)?r:[r];}
+function fmt(iso){if(!iso)return "Earlier note";var d=new Date(iso);if(isNaN(d))return "";return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})+", "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});}
+var PEN='<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+function render(){
+  var buckets=lanes.map(function(){return [];});
+  lanes.forEach(function(l,li){l.items.forEach(function(x){
+    x.key=x.n+"|"+(x.e||"")+"|"+(x.s||x.w);
+    var to=moves[x.key];if(typeof to!=="number"||!buckets[to])to=li;
+    buckets[to].push(x);
+  });});
+  var html="";
+  buckets.forEach(function(items,i){
+    var l=lanes[i];
+    html+='<section class="lane"><h2><span>'+esc(l.t)+'</span><em>'+items.length+'</em></h2><p class="hint">'+esc(l.hint)+'</p><div class="cards">';
+    items.forEach(function(x){
+      var d=days(x.m,x.d), done=(i===2), cls=done?"ok":(d>=14?"bad":(d>=5?"warn":"")), label=done?(d+"d ago"):(d===0?"today":d+"d");
+      var unk=x.n==="Name not shown", es=entries(x.key).slice().reverse();
+      html+='<div class="card" data-key="'+esc(x.key)+'">'+(x.u?'<a class="open" href="'+x.u+'" target="_blank" rel="noopener" aria-label="Open email for '+esc(x.n)+'"></a>':'');
+      html+='<div class="top"><div class="name'+(unk?' unk':'')+'">'+esc(x.n)+'</div><div class="age '+cls+'">'+label+'</div></div>';
+      if(x.e)html+='<div class="mail">'+esc(x.e)+(x.p?' · '+esc(x.p):'')+'</div>';
+      html+='<div class="what">'+esc(x.w)+'</div>';
+      if(x.note)html+='<div class="note">'+esc(x.note)+'</div>';
+      if(x.s)html+='<div class="sent">'+esc(x.s)+'</div>';
+      html+='<div class="notes">';
+      if(es.length){html+='<div class="nlist">'+es.map(function(n){return '<div class="ne">'+esc(n.t)+'<span class="ndate">'+esc(fmt(n.at))+'</span></div>';}).join('')+'</div>';}
+      html+='<div class="nform" hidden><textarea rows="3" placeholder="Add a note" aria-label="New note for '+esc(x.n)+'"></textarea><div class="nbtns"><button type="button" class="save">Save note</button><button type="button" class="cancel">Cancel</button></div></div>';
+      html+='<div class="actions"><select class="mv" aria-label="Move '+esc(x.n)+' to">'+lanes.map(function(ln,j){return '<option value="'+j+'"'+(j===i?' selected':'')+'>'+(j===i?'In: ':'Move to: ')+esc(ln.t)+'</option>';}).join('')+'</select>';
+      html+='<button type="button" class="pen'+(es.length?' has':'')+'" aria-label="Add a note">'+PEN+'</button></div></div></div>';
+    });
+    html+='</div></section>';
   });
+  document.getElementById("lanes").innerHTML=html;
+  document.getElementById("sum").innerHTML=
+   '<div><b>'+buckets[0].length+'</b><span>waiting on a signature</span></div>'+
+   '<div><b>'+buckets[1].length+'</b><span>need our reply</span></div>'+
+   '<div><b>'+buckets[2].length+'</b><span>signed</span></div>';
+}
+var root=document.getElementById("lanes");
+root.addEventListener("click",function(e){
+  var c=e.target.closest(".card");if(!c)return;
+  var form=c.querySelector(".nform");
+  if(e.target.closest(".pen")){form.hidden=!form.hidden;if(!form.hidden)form.querySelector("textarea").focus();}
+  else if(e.target.closest(".cancel")){form.hidden=true;form.querySelector("textarea").value="";}
+  else if(e.target.closest(".save")){
+    var v=form.querySelector("textarea").value.trim();if(!v)return;
+    var k=c.dataset.key,list=entries(k).slice();list.push({t:v,at:new Date().toISOString()});
+    store[k]=list;persist();render();
+  }
 });
-document.getElementById("sum").innerHTML=
- '<div><b>'+waiting+'</b><span>waiting on a signature</span></div>'+
- '<div><b>'+reply+'</b><span>need our reply</span></div>'+
- '<div><b>'+signed+'</b><span>signed since Oct 7</span></div>';
+root.addEventListener("keydown",function(e){
+  if(e.target.tagName==="TEXTAREA"&&(e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.target.closest(".card").querySelector(".save").click();}
+  if(e.target.tagName==="TEXTAREA"&&e.key==="Escape"){e.target.closest(".card").querySelector(".cancel").click();}
+});
+root.addEventListener("change",function(e){
+  if(!e.target.classList.contains("mv"))return;
+  moves[e.target.closest(".card").dataset.key]=parseInt(e.target.value,10);persist();render();
+});
+render();
 </script>
 </body></html>
